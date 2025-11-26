@@ -46,11 +46,35 @@ def get_match_history(puuid, count=20):
     url = f"{BASE_URL}/lol/match/v5/matches/by-puuid/{puuid}/ids"
     headers = {"X-Riot-Token": API_KEY}
     params = {'count': count}
-    
+
     response = requests.get(url, headers=headers, params=params)
     if response.status_code == 200:
         return response.json()
     return []
+
+def collect_player_match_data(players_df, matches_per_player=20):
+    """Collect match history for all players"""
+    all_matches = []
+
+    for idx, row in players_df.iterrows():
+        puuid = row['puuid']
+        print(f"Processing player {idx+1}/{len(players_df)}...")
+
+        # Get match IDs
+        match_ids = get_match_history(puuid, count=matches_per_player)
+
+        for match_id in match_ids:
+            all_matches.append({
+                'puuid': puuid,
+                'matchId': match_id,
+                'wins': row['wins'],
+                'losses': row['losses'],
+                'leaguePoints': row['leaguePoints']
+            })
+
+        time.sleep(1.2)  # Rate limit protection
+
+    return pd.DataFrame(all_matches)
 
 if __name__ == "__main__":
     print("Fetching Challenger players...")
@@ -65,3 +89,13 @@ if __name__ == "__main__":
     df = pd.DataFrame(players)
     df.to_csv('data/raw/challenger_players.csv', index=False)
     print(f"\nSaved {len(players)} players to data/raw/challenger_players.csv")
+
+    # Collect match history
+    print("\n" + "="*50)
+    print("Collecting match history...")
+    print("="*50)
+
+    matches_df = collect_player_match_data(df, matches_per_player=20)
+
+    matches_df.to_csv('data/raw/player_matches.csv', index=False)
+    print(f"\n✓ Saved {len(matches_df)} match records to data/raw/player_matches.csv")
